@@ -25,9 +25,18 @@ function App() {
   const [keyInput, setKeyInput] = useState('');
   const [actionError, setActionError] = useState('');
   const [copiedId, setCopiedId] = useState(null);
-
+  const [showReportForm, setShowReportForm] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [reportDetails, setReportDetails] = useState('');
   const fileInputRef = useRef(null);
 
+
+  function handleReportSubmit(e) {
+    e.preventDefault();
+    setReportReason('');
+    setReportDetails('');
+    setShowReportForm(false);
+  }
   function resetForm() {
     setTitle('');
     setType('borrow');
@@ -185,9 +194,8 @@ function App() {
     const inDesc = (item.description || '').toLowerCase().includes(q);
     return inTitle || inDesc;
   });
-
-  return (
- <div className="min-h-screen bg-slate-950 text-slate-100">
+return (
+    <div className="min-h-screen bg-slate-950 text-slate-100">
       {/* Top Navbar */}
       <nav className="bg-slate-900/95 backdrop-blur border-b border-slate-800 sticky top-0 z-10 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between">
@@ -209,13 +217,29 @@ function App() {
             </div>
           </a>
 
-          <button
-            type="button"
-            onClick={() => setShowPostForm((prev) => !prev)}
-            className="bg-blue-500 text-white px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium shadow-2xs hover:bg-blue-400 active:scale-[0.99] transition cursor-pointer"
-          >
-            {showPostForm ? 'Close Form' : '+ Post Item'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setShowReportForm((prev) => !prev);
+                setShowPostForm(false);
+              }}
+              className="border border-slate-700 bg-slate-800 text-slate-200 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium hover:bg-slate-700 active:scale-[0.99] transition cursor-pointer"
+            >
+              {showReportForm ? 'Close Report' : 'Report'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setShowPostForm((prev) => !prev);
+                setShowReportForm(false);
+              }}
+              className="bg-blue-500 text-white px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium shadow-2xs hover:bg-blue-400 active:scale-[0.99] transition cursor-pointer"
+            >
+              {showPostForm ? 'Close Form' : '+ Post Item'}
+            </button>
+          </div>
         </div>
       </nav>
 
@@ -345,6 +369,57 @@ function App() {
           </form>
         )}
 
+        {/* Toggleable Report Form */}
+        {showReportForm && (
+          <form
+            onSubmit={handleReportSubmit}
+            className="bg-slate-900 border border-slate-800 rounded-xl p-4 mb-5 shadow-lg"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-white">Report</h2>
+              <span className="text-xs text-slate-400">
+                Fill details and submit
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <input
+                type="text"
+                placeholder="Reason or item name"
+                value={reportReason}
+                onChange={(e) => setReportReason(e.target.value)}
+                className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition"
+                required
+              />
+
+              <input
+                type="text"
+                placeholder="Details"
+                value={reportDetails}
+                onChange={(e) => setReportDetails(e.target.value)}
+                className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition"
+                required
+              />
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-slate-800 flex items-center gap-2">
+              <button
+                type="submit"
+                className="bg-blue-500 text-white px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium hover:bg-blue-400 transition cursor-pointer"
+              >
+                Submit
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowReportForm(false)}
+                className="border border-slate-700 text-slate-300 px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium hover:bg-slate-800 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        )}
+
         {/* Filter Buttons & Search Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
           <div className="flex flex-wrap gap-1.5">
@@ -428,7 +503,7 @@ function App() {
                         {item.title}
                       </h2>
 
-                      <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-1">
+                      <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-1 break-words">
                         {item.description}
                       </p>
                     </div>
@@ -514,6 +589,6 @@ function App() {
         )}
       </main>
     </div>
-  )
+  );
 }
 export default App;
