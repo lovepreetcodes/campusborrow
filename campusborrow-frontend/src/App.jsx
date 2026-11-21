@@ -197,34 +197,33 @@ function App() {
 return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
       {/* Top Navbar */}
+    {/* Top Navbar */}
       <nav className="bg-slate-900/95 backdrop-blur border-b border-slate-800 sticky top-0 z-10 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between">
-          <a href="#top" className="flex items-center gap-2.5 group">
-            <div className="h-9 w-9 rounded-lg bg-white border border-slate-700/80 shadow-2xs flex items-center justify-center p-1 shrink-0 transition group-hover:border-blue-400">
-              <img
-                src="/hero.png"
-                alt="CampusBorrow logo"
-                className="h-full w-full object-contain"
-              />
-            </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between">
+          <a href="#top" className="flex items-center gap-3 group">
+            <img
+              src="/hero.png"
+              alt="UniShare logo"
+              className="h-12 w-12 object-contain shrink-0 transition group-hover:scale-105"
+            />
             <div className="leading-tight">
-              <span className="text-base font-bold tracking-tight text-white block">
-                CampusBorrow
+              <span className="text-lg font-bold tracking-tight text-white block">
+                UniShare
               </span>
-              <span className="text-[10px] font-medium text-slate-400 hidden sm:block">
+              <span className="text-[11px] font-medium text-slate-400 hidden sm:block">
                 Share &amp; borrow on campus
               </span>
             </div>
           </a>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <button
               type="button"
               onClick={() => {
                 setShowReportForm((prev) => !prev);
                 setShowPostForm(false);
               }}
-              className="border border-slate-700 bg-slate-800 text-slate-200 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium hover:bg-slate-700 active:scale-[0.99] transition cursor-pointer"
+              className="border border-slate-700 bg-slate-800 text-slate-200 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium hover:bg-slate-700 active:scale-[0.99] transition cursor-pointer"
             >
               {showReportForm ? 'Close Report' : 'Report'}
             </button>
@@ -235,7 +234,7 @@ return (
                 setShowPostForm((prev) => !prev);
                 setShowReportForm(false);
               }}
-              className="bg-blue-500 text-white px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium shadow-2xs hover:bg-blue-400 active:scale-[0.99] transition cursor-pointer"
+              className="bg-blue-500 text-white px-4 py-2 rounded-lg text-xs sm:text-sm font-medium shadow-2xs hover:bg-blue-400 active:scale-[0.99] transition cursor-pointer"
             >
               {showPostForm ? 'Close Form' : '+ Post Item'}
             </button>
