@@ -109,3 +109,85 @@ campusborrow/
 ├── screenshots/             # Add your demo images here
 └── README.md
 
+```
+
+## Implementation Details
+
+### 1. API Base URL & Trailing-Slash Normalization
+To prevent double-slash URLs such as `https://campusburrow-1.onrender.com//api/items` when `VITE_API_URL` includes a trailing slash, `API_URL` normalizes trailing slashes before appending `/api/items`:
+
+```javascript
+const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/+$/, '');
+
+```
+## Implementation Details
+
+### 1. API Base URL & Trailing-Slash Normalization
+To prevent double-slash URLs such as `https://campusburrow-1.onrender.com//api/items` when `VITE_API_URL` includes a trailing slash, `API_URL` normalizes trailing slashes before appending `/api/items`:
+
+```javascript
+const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/+$/, '');
+```
+
+- In **Vercel Environment Variables**, `VITE_API_URL` is configured as a **Config** variable set to `https://campusburrow-1.onrender.com` (without a trailing slash).
+
+### 2. Item Posting, Filtering, Searching & Image Display
+- Users click **+ Post Item** to open the creation form and submit item details along with a **Secret Delete Key**[cite: 51, 53].
+- Optional images are processed on the client with a preview before submission and fall back cleanly to a default placeholder if missing or broken[cite: 51, 53].
+- Card and preview images use `object-contain` so uploaded photos and textbook or equipment visuals are shown completely without cropping.
+- Users can narrow results using type pills (`All`, `Borrow`, `Giveaway`, `Request`) and type into `Search items...`[cite: 51, 52].
+
+### 3. Item Status & Deletion with Secret Key
+- Each card displays `Claim` (or `Available` if already `Claimed`) and `Delete`[cite: 51, 54].
+- Clicking either action opens an inline key prompt (`Item key`) on the card[cite: 54].
+- Submitting the key verifies authorization for that item and either toggles status (`available` ↔ `claimed`) or deletes the listing[cite: 51, 54].
+
+### 4. Navbar, Branding & Frontend Report Form
+- The sticky top navbar houses the brand logo and title (`UniShare` / `CampusBorrow`), `Share & borrow on campus` subtitle, **Report** button, and **+ Post Item** button[cite: 51, 52].
+- Clicking **Report** toggles the report form (`showReportForm`) and closes the Post Item form if open; submitting resets the report fields and closes the form on the frontend.
+
+### 5. Git Synchronization & Deployment Workflow
+- Changes are committed locally and pushed to `origin main` on GitHub (`https://github.com/lovepreetcodes/campusburrow.git`)[cite: 57].
+- If remote commits exist on `main`, `git pull --rebase origin main` is run prior to `git push` to keep commit history linear.
+- **Render** builds and serves the Express API (`campusburrow-1`)[cite: 56], and **Vercel** builds and deploys `campusborrow-frontend` automatically on push[cite: 55].
+
+---
+
+## Local Setup & Environment Variables
+
+### 1. Clone the Repository
+```bash
+git clone [https://github.com/lovepreetcodes/campusburrow.git](https://github.com/lovepreetcodes/campusburrow.git)
+cd campusburrow
+```
+
+### 2. Backend Setup (`campusborrow-backend`)
+Create a `.env` file inside `campusborrow-backend/`:
+
+```env
+PORT=5000
+MONGO_URI=your_mongodb_atlas_connection_string
+```
+
+Install dependencies and start the server:
+
+```bash
+cd campusborrow-backend
+npm install
+npm start
+```
+
+### 3. Frontend Setup (`campusborrow-frontend`)
+Create a `.env` file inside `campusborrow-frontend/`:
+
+```env
+VITE_API_URL=http://localhost:5000
+```
+
+Install dependencies and run the Vite dev server:
+
+```bash
+cd campusborrow-frontend
+npm install
+npm run dev
+```
