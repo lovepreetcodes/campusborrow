@@ -7,8 +7,8 @@ const Item = require('./models/Item');
 
 const app = express();
 app.use(cors());
-app.use(express.json());
-
+app.use(express.json({ limit: '5mb' }));
+app.use(express.urlencoded({ limit: '5mb', extended: true }));
 // Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('Connected to MongoDB'))
@@ -66,7 +66,28 @@ app.delete('/api/items/:id', async (req, res) => {
     res.status(400).json({ error: 'Invalid item ID' });
   }
 });
+// Toggle status between 'available' and 'claimed' using deleteKey
+app.patch('/api/items/:id/status', async (req, res) => {
+  try {
+    const item = await Item.findById(req.params.id);
 
+    if (!item) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+
+    if (item.deleteKey !== req.body.deleteKey) {
+      return res.status(403).json({ error: 'Wrong key' });
+    }
+
+    const nextStatus = item.status === 'claimed' ? 'available' : 'claimed';
+    item.status = nextStatus;
+    await item.save();
+
+    res.json({ _id: item._id, status: item.status });
+  } catch (err) {
+    res.status(400).json({ error: 'Could not update status' });
+  }
+});
 // Start the server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

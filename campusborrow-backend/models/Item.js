@@ -11,11 +11,20 @@ const itemSchema = new mongoose.Schema(
       enum: ['borrow', 'giveaway', 'request'],
       default: 'borrow',
     },
+    status: {
+      type: String,
+      enum: ['available', 'claimed'],
+      default: 'available',
+    },
     contact: {
       type: String,
       required: true,
     },
     description: {
+      type: String,
+      default: '',
+    },
+    imageUrl: {
       type: String,
       default: '',
     },
