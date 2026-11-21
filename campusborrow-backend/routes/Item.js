@@ -1,5 +1,6 @@
 const express = require('express');
 const Item = require('../models/Item');
+const auth = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -29,8 +30,8 @@ router.get('/', async (req, res) => {
   }
 });
 
-// POST /api/items - Post an item with a mandatory phone number
-router.post('/', async (req, res) => {
+// POST /api/items - Post an item (requires login)
+router.post('/', auth, async (req, res) => {
   try {
     const { posterName, phone, title, description, category, type, pickupSpot } = req.body;
 
@@ -45,13 +46,14 @@ router.post('/', async (req, res) => {
     }
 
     const item = await Item.create({
-      posterName,
-      phone,
-      title,
+      posterName: posterName.trim(),
+      phone: phone.trim(),
+      title: title.trim(),
       description,
       category,
       type,
       pickupSpot,
+      owner: req.userId,
     });
 
     res.status(201).json(item);
@@ -60,14 +62,58 @@ router.post('/', async (req, res) => {
   }
 });
 
-// DELETE /api/items/:id - Remove a post once sorted or no longer needed
-router.delete('/:id', async (req, res) => {
+// DELETE /api/items/:id - Only the item owner can delete
+router.delete('/:id', auth, async (req, res) => {
   try {
-    const deleted = await Item.findByIdAndDelete(req.params.id);
-    if (!deleted) return res.status(404).json({ error: 'Item not found' });
+    const item = await Item.findById(req.params.id);
+    if (!item) return res.status(404).json({ error: 'Item not found' });
+
+    if (!item.owner || item.owner.toString() !== req.userId) {
+      return res.status(403).json({ error: 'You can only delete your own items' });
+    }
+
+    await item.deleteOne();
     res.json({ deleted: true });
   } catch (err) {
     res.status(400).json({ error: 'Invalid ID' });
+  }
+});
+// PATCH /api/items/:id/status - Toggle between 'available' and 'claimed' (requires login)
+router.patch('/:id/status', auth, async (req, res) => {
+  try {
+    const item = await Item.findById(req.params.id);
+    if (!item) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+
+    // Use requested status if valid, otherwise toggle current status
+    let nextStatus;
+    if (req.body && ['available', 'claimed'].includes(req.body.status)) {
+      nextStatus = req.body.status;
+    } else {
+      nextStatus = item.status === 'claimed' ? 'available' : 'claimed';
+    }
+
+    // Optional simple rule: prevent claiming your own item
+    if (
+      nextStatus === 'claimed' &&
+      item.owner &&
+      item.owner.toString() === req.userId
+    ) {
+      return res.status(400).json({ error: 'You cannot claim your own item' });
+    }
+
+    item.status = nextStatus;
+
+    // If your Item schema has claimedBy, keep it in sync
+    if ('claimedBy' in item) {
+      item.claimedBy = nextStatus === 'claimed' ? req.userId : null;
+    }
+
+    await item.save();
+    res.json(item);
+  } catch (err) {
+    res.status(400).json({ error: 'Invalid ID or status update failed' });
   }
 });
 
