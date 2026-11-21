@@ -1,25 +1,37 @@
 import { useEffect, useState } from 'react';
-import { clearAuth, getStoredUser, getToken, saveAuth } from './auth';
+import {
+  clearAuth,
+  getStoredToken,
+  getStoredUser,
+  isTokenExpired,
+  saveAuth,
+} from './auth';
 import AuthModal from './components/AuthModal';
 import ItemCard from './components/ItemCard';
 import Navbar from './components/Navbar';
 import PostItemForm from './components/PostItemForm';
 import ReportForm from './components/ReportForm';
 
-const ITEM_TYPES = ['all', 'borrow', 'giveaway', 'request','sell'];
+const ITEM_TYPES = ['all', 'borrow', 'giveaway', 'request', 'sell'];
 const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(
   /\/+$/,
   ''
 );
 
 function App() {
-  
   const [items, setItems] = useState([]);
   const [selectedType, setSelectedType] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
+  const [token, setToken] = useState(() => {
+    const saved = getStoredToken();
+    if (!saved || isTokenExpired(saved)) {
+      clearAuth();
+      return null;
+    }
+    return saved;
+  });
   const [user, setUser] = useState(() => getStoredUser());
-  const [token, setToken] = useState(() => getToken());
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   const [showPostForm, setShowPostForm] = useState(false);
@@ -45,7 +57,8 @@ function App() {
   }
 
   function requireAuth(action) {
-    if (!token) {
+    if (!token || isTokenExpired(token)) {
+      handleLogout();
       setShowAuthModal(true);
       return false;
     }
@@ -55,18 +68,45 @@ function App() {
 
   async function fetchItems(activeType = selectedType, authToken = token) {
     try {
+      let validToken = authToken;
+      if (validToken && isTokenExpired(validToken)) {
+        clearAuth();
+        setToken(null);
+        setUser(null);
+        setShowPostForm(false);
+        validToken = null;
+      }
+
       const query =
         activeType && activeType !== 'all'
           ? `?type=${encodeURIComponent(activeType)}`
           : '';
 
-      const headers = authToken
-        ? { Authorization: `Bearer ${authToken}` }
+      const headers = validToken
+        ? { Authorization: `Bearer ${validToken}` }
         : {};
 
       const response = await fetch(`${API_URL}/api/items${query}`, { headers });
+
+      if (response.status === 401 && validToken) {
+        handleLogout();
+        setItems([]);
+        return;
+      }
+
       const data = await response.json();
-      setItems(Array.isArray(data) ? data : []);
+      const list = Array.isArray(data) ? data : [];
+
+      // If token was sent but backend stripped contact/phone on all items, token is invalid/expired
+      if (
+        validToken &&
+        list.length > 0 &&
+        list.every((item) => !item.contact && !item.phone)
+      ) {
+        handleLogout();
+      }
+
+      setItems(list);
     } catch {
       setItems([]);
     }
@@ -76,39 +116,9 @@ function App() {
     fetchItems(selectedType, token);
   }, [selectedType, token]);
 
-  async function handleToggleStatus(item) {
-    if (!token) {
-      setShowAuthModal(true);
-      return;
-    }
-
-    const nextStatus = item.status === 'claimed' ? 'available' : 'claimed';
-    const response = await fetch(`${API_URL}/api/items/${item._id}/status`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ status: nextStatus }),
-    });
-
-    if (response.status === 401) {
-      handleAuthExpired();
-      return;
-    }
-
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      alert(data.error || data.message || 'Could not update status.');
-      return;
-    }
-
-    fetchItems(selectedType, token);
-  }
-
   async function handleDeleteItem(itemId) {
-    if (!token) {
-      setShowAuthModal(true);
+    if (!token || isTokenExpired(token)) {
+      handleAuthExpired();
       return;
     }
 
@@ -235,7 +245,6 @@ function App() {
                 isLoggedIn={Boolean(token)}
                 copiedId={copiedId}
                 onCopyContact={handleCopyContact}
-                onToggleStatus={handleToggleStatus}
                 onDelete={handleDeleteItem}
                 onOpenAuth={() => setShowAuthModal(true)}
               />

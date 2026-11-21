@@ -9,17 +9,14 @@ export default function ItemCard({
   onDelete,
   onOpenAuth,
 }) {
-  const isClaimed = item.status === 'claimed';
-  const contactValue = item.contact || item.phone || '';
+  const contactValue = (item.contact || item.phone || '').trim();
   const ownerId = (item.owner?._id || item.owner || '').toString();
-  const isOwner = Boolean(currentUserId && ownerId && ownerId === currentUserId.toString());
+  const isOwner = Boolean(
+    currentUserId && ownerId && ownerId === currentUserId.toString()
+  );
 
   return (
-    <div
-      className={`bg-slate-900 border border-slate-800 rounded-lg overflow-hidden shadow-sm hover:border-slate-700 transition flex flex-col justify-between ${
-        isClaimed ? 'opacity-80' : ''
-      }`}
-    >
+    <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden shadow-sm hover:border-slate-700 transition flex flex-col justify-between">
       <div>
         <div className="w-full h-28 bg-slate-950 overflow-hidden border-b border-slate-800">
           <img
@@ -44,13 +41,7 @@ export default function ItemCard({
             >
               {item.type}
             </span>
-            <span
-              className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full capitalize ${
-                isClaimed
-                  ? 'bg-amber-500/15 text-amber-300 border border-amber-500/25'
-                  : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/25'
-              }`}
-            >
+            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full capitalize bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">
               {item.status || 'available'}
             </span>
           </div>
@@ -67,18 +58,24 @@ export default function ItemCard({
 
       <div className="px-2.5 pb-2.5 pt-2 border-t border-slate-800 text-[11px] text-slate-300 bg-slate-950/50">
         {isLoggedIn ? (
-          <div className="flex items-center justify-between gap-1.5">
-            <span className="truncate text-slate-300" title={contactValue}>
-              {contactValue}
+          contactValue ? (
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="truncate text-slate-300" title={contactValue}>
+                {contactValue}
+              </span>
+              <button
+                type="button"
+                onClick={() => onCopyContact(item._id, contactValue)}
+                className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-200 hover:bg-slate-700 shrink-0 transition cursor-pointer"
+              >
+                {copiedId === item._id ? 'Copied' : 'Copy'}
+              </button>
+            </div>
+          ) : (
+            <span className="text-[10px] text-slate-500 block text-center py-1">
+              Contact unavailable
             </span>
-            <button
-              type="button"
-              onClick={() => onCopyContact(item._id, contactValue)}
-              className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-200 hover:bg-slate-700 shrink-0 transition cursor-pointer"
-            >
-              {copiedId === item._id ? 'Copied' : 'Copy'}
-            </button>
-          </div>
+          )
         ) : (
           <button
             type="button"
