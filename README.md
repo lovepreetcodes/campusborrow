@@ -1,9 +1,8 @@
-# UniShare
+# CampusBorrow
 
 A dark-themed campus item-sharing platform built to help students lend, borrow, give away, or request everyday items like books, calculators, lab gear, and notes—without heavy account walls or cluttered forms.
 
 <!-- Replace with your full dashboard screenshot once saved -->
-![UniShare Dark Dashboard](./screenshots/dashboard.png)
 
 ## Key Features
 
