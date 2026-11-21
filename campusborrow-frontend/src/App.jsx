@@ -208,7 +208,7 @@ return (
             />
             <div className="leading-tight">
               <span className="text-lg font-bold tracking-tight text-white block">
-                UniShare
+                CampusBurrow
               </span>
               <span className="text-[11px] font-medium text-slate-400 hidden sm:block">
                 Share &amp; borrow on campus
