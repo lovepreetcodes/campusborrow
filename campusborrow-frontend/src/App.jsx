@@ -6,7 +6,7 @@ const ITEM_TYPES = ['all', 'borrow', 'giveaway', 'request'];
 function App() {
   const [items, setItems] = useState([]);
   const [showPostForm, setShowPostForm] = useState(false);
-
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
   // Filter & search state
   const [selectedType, setSelectedType] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -71,7 +71,7 @@ function App() {
         ? `?type=${encodeURIComponent(activeType)}`
         : '';
 
-    const response = await fetch(`http://localhost:5000/api/items${query}`);
+    const response = await fetch(`${API_URL}/api/items${query}`);
     const data = await response.json();
     setItems(Array.isArray(data) ? data : []);
   }
@@ -84,7 +84,7 @@ function App() {
     e.preventDefault();
     if (isProcessingImage) return;
 
-    const response = await fetch('http://localhost:5000/api/items', {
+    const response = await fetch(`${API_URL}/api/items`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -129,7 +129,7 @@ function App() {
     }
 
     if (activeAction.mode === 'delete') {
-      const response = await fetch(`http://localhost:5000/api/items/${item._id}`, {
+      const response = await fetch(`${API_URL}/api/items/${item._id}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ deleteKey: keyInput }),
@@ -147,7 +147,7 @@ function App() {
 
     if (activeAction.mode === 'status') {
       const response = await fetch(
-        `http://localhost:5000/api/items/${item._id}/status`,
+        `${API_URL}/api/items/${item._id}/status`,
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -424,7 +424,7 @@ function App() {
                         </span>
                       </div>
 
-                      <h2 className="text-xs sm:text-sm font-bold text-white leading-snug truncate">
+                      <h2 className="text-xs sm:text-sm font-bold text-white leading-snug break-words">
                         {item.title}
                       </h2>
 
