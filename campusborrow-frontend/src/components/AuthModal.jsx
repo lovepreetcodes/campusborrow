@@ -1,95 +1,89 @@
 import { useState } from 'react';
 
-export default function AuthModal({ apiUrl, onClose, onSuccess }) {
-  const [mode, setMode] = useState('login');
+const inputClass =
+  'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200';
+
+export default function AuthModal({ apiUrl, onSuccess, onClose }) {
+  const [isLogin, setIsLogin] = useState(true); // true = login, false = sign up
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
-    setSubmitting(true);
+
+    // Login sends email+password, sign up also sends the name
+    const url = apiUrl + (isLogin ? '/api/auth/login' : '/api/auth/register');
+    const body = isLogin ? { email, password } : { name, email, password };
 
     try {
-      const endpoint = mode === 'login' ? '/api/auth/login' : '/api/auth/register';
-      const body =
-        mode === 'login' ? { email, password } : { name, email, password };
-
-      const res = await fetch(`${apiUrl}${endpoint}`, {
+      const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-
       const data = await res.json();
-      if (!res.ok) {
-        setError(data.message || data.error || 'Authentication failed.');
-        return;
-      }
 
-      onSuccess(data);
+      if (!res.ok) return setError(data.message || 'Something went wrong.');
+
+      onSuccess(data); // gives { token, user } to App
       onClose();
     } catch {
       setError('Could not connect to server.');
-    } finally {
-      setSubmitting(false);
     }
   }
 
   return (
-    <div className="fixed inset-0 z-30 bg-black/70 flex items-center justify-center p-4">
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 w-full max-w-sm shadow-xl">
-        <h2 className="text-base font-semibold text-white mb-3">
-          {mode === 'login' ? 'Login to CampusBorrow' : 'Create Account'}
+    <div className="fixed inset-0 z-30 bg-indigo-950/60 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl p-7 w-full max-w-sm shadow-2xl border-t-4 border-t-indigo-600">
+        <h2 className="text-lg font-semibold mb-4">
+          {isLogin ? 'Login to CampusBorrow' : 'Create Account'}
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-3">
-          {mode === 'register' && (
+          {!isLogin && (
             <input
-              type="text"
+              className={inputClass}
               placeholder="Full name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-blue-500"
               required
             />
           )}
 
           <input
+            className={inputClass}
             type="email"
-            placeholder="Email address"
+            placeholder="Email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-blue-500"
             required
           />
 
           <input
+            className={inputClass}
             type="password"
-            placeholder="Password (min 6 chars)"
+            placeholder="Password (min 6 characters)"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-blue-500"
             required
           />
 
-          {error && <p className="text-xs text-rose-400">{error}</p>}
+          {error && <p className="text-sm text-red-600">{error}</p>}
 
-          <div className="flex items-center gap-2 pt-1">
+          <div className="flex gap-2">
             <button
               type="submit"
-              disabled={submitting}
-              className="bg-blue-500 text-white px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium hover:bg-blue-400 disabled:opacity-50 transition cursor-pointer"
+              className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-700 cursor-pointer"
             >
-              {submitting ? 'Please wait...' : mode === 'login' ? 'Login' : 'Sign up'}
+              {isLogin ? 'Login' : 'Sign up'}
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="border border-slate-700 text-slate-300 px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium hover:bg-slate-800 transition cursor-pointer"
+              className="border border-slate-300 px-4 py-2 rounded-lg text-sm hover:bg-slate-100 cursor-pointer"
             >
               Cancel
             </button>
@@ -97,16 +91,13 @@ export default function AuthModal({ apiUrl, onClose, onSuccess }) {
         </form>
 
         <button
-          type="button"
           onClick={() => {
             setError('');
-            setMode((m) => (m === 'login' ? 'register' : 'login'));
+            setIsLogin(!isLogin);
           }}
-          className="mt-3 text-xs text-blue-400 hover:underline cursor-pointer"
+          className="mt-4 text-sm text-indigo-600 hover:underline cursor-pointer"
         >
-          {mode === 'login'
-            ? 'Need an account? Sign up'
-            : 'Already have an account? Login'}
+          {isLogin ? 'Need an account? Sign up' : 'Already have an account? Login'}
         </button>
       </div>
     </div>

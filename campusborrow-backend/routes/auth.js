@@ -1,3 +1,5 @@
+// Register and login. Both reply with a token (the "wristband") and basic user info.
+
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -5,8 +7,17 @@ const User = require('../models/User');
 
 const router = express.Router();
 
-function signToken(userId) {
-  return jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: '7d' });
+// Creates a token that contains the user's id and expires in 7 days
+function makeToken(user) {
+  return jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+}
+
+// What we send back to the frontend (never includes the password)
+function loginResponse(user) {
+  return {
+    token: makeToken(user),
+    user: { id: user._id, name: user.name, email: user.email },
+  };
 }
 
 // POST /api/auth/register
@@ -15,27 +26,21 @@ router.post('/register', async (req, res) => {
     const { name, email, password } = req.body;
 
     if (!name || !email || !password || password.length < 6) {
-      return res.status(400).json({ message: 'Name, email, and 6+ char password required' });
+      return res.status(400).json({ message: 'Name, email and a 6+ character password are required' });
     }
 
-    const existing = await User.findOne({ email: email.toLowerCase().trim() });
-    if (existing) {
+    const cleanEmail = email.toLowerCase().trim();
+
+    if (await User.findOne({ email: cleanEmail })) {
       return res.status(409).json({ message: 'Email already registered' });
     }
 
+    // Store a scrambled (hashed) password, never the real one
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = await User.create({
-      name: name.trim(),
-      email: email.toLowerCase().trim(),
-      password: hashedPassword
-    });
+    const user = await User.create({ name: name.trim(), email: cleanEmail, password: hashedPassword });
 
-    const token = signToken(user._id);
-    res.status(201).json({
-      token,
-      user: { id: user._id, name: user.name, email: user.email }
-    });
-  } catch (err) {
+    res.status(201).json(loginResponse(user));
+  } catch {
     res.status(500).json({ message: 'Registration failed' });
   }
 });
@@ -50,16 +55,15 @@ router.post('/login', async (req, res) => {
     }
 
     const user = await User.findOne({ email: email.toLowerCase().trim() });
-    if (!user || !(await bcrypt.compare(password, user.password))) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+
+    // Compare the typed password with the stored hash
+    const passwordOk = user && (await bcrypt.compare(password, user.password));
+    if (!passwordOk) {
+      return res.status(401).json({ message: 'Invalid email or password' });
     }
 
-    const token = signToken(user._id);
-    res.json({
-      token,
-      user: { id: user._id, name: user.name, email: user.email }
-    });
-  } catch (err) {
+    res.json(loginResponse(user));
+  } catch {
     res.status(500).json({ message: 'Login failed' });
   }
 });

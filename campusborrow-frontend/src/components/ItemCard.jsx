@@ -1,101 +1,77 @@
+import { useState } from 'react';
 import { DEFAULT_ITEM_IMAGE } from '../imageHelper';
 
-export default function ItemCard({
-  item,
-  currentUserId,
-  isLoggedIn,
-  copiedId,
-  onCopyContact,
-  onDelete,
-  onOpenAuth,
-}) {
-  const contactValue = (item.contact || item.phone || '').trim();
-  const ownerId = (item.owner?._id || item.owner || '').toString();
-  const isOwner = Boolean(
-    currentUserId && ownerId && ownerId === currentUserId.toString()
-  );
+// Each item type gets its own colour so the feed is easy to scan
+const TYPE_STYLES = {
+  borrow: 'bg-indigo-100 text-indigo-700',
+  giveaway: 'bg-emerald-100 text-emerald-700',
+  request: 'bg-amber-100 text-amber-800',
+  sell: 'bg-rose-100 text-rose-700',
+};
+
+export default function ItemCard({ item, currentUserId, isLoggedIn, onDelete, onLogin }) {
+  const [copied, setCopied] = useState(false);
+
+  const contact = item.contact || item.phone; // server hides this for guests
+  const isOwner = currentUserId && item.owner === currentUserId;
+
+  async function copyContact() {
+    await navigator.clipboard.writeText(contact);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden shadow-sm hover:border-slate-700 transition flex flex-col justify-between">
-      <div>
-        <div className="w-full h-28 bg-slate-950 overflow-hidden border-b border-slate-800">
-          <img
-            src={item.imageUrl || DEFAULT_ITEM_IMAGE}
-            alt={item.title}
-            onError={(e) => {
-              e.currentTarget.onerror = null;
-              e.currentTarget.src = DEFAULT_ITEM_IMAGE;
-            }}
-            className="w-full h-full object-cover"
-          />
-        </div>
+    <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col">
+      <img
+        src={item.imageUrl || DEFAULT_ITEM_IMAGE}
+        alt={item.title}
+        className="w-full h-32 object-cover"
+      />
 
-        <div className="p-2.5">
-          <div className="flex items-center justify-between gap-1 mb-1">
-            <span
-              className={`text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded border ${
-                item.type === 'sell'
-                  ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/20'
-                  : 'bg-blue-500/15 text-blue-300 border-blue-500/20'
-              }`}
-            >
-              {item.type}
-            </span>
-            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full capitalize bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">
-              {item.status || 'available'}
-            </span>
-          </div>
-
-          <h2 className="text-xs sm:text-sm font-bold text-white leading-snug break-words">
-            {item.title}
-          </h2>
-
-          <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-1 break-words">
-            {item.description}
-          </p>
-        </div>
+      <div className="p-4 flex-1">
+        <span
+          className={`text-xs font-semibold capitalize px-2.5 py-0.5 rounded-full ${
+            TYPE_STYLES[item.type] || TYPE_STYLES.borrow
+          }`}
+        >
+          {item.type}
+        </span>
+        <h2 className="font-semibold text-slate-900 mt-3 break-words">{item.title}</h2>
+        <p className="text-sm text-slate-500 mt-1 line-clamp-2 break-words">{item.description}</p>
       </div>
 
-      <div className="px-2.5 pb-2.5 pt-2 border-t border-slate-800 text-[11px] text-slate-300 bg-slate-950/50">
-        {isLoggedIn ? (
-          contactValue ? (
-            <div className="flex items-center justify-between gap-1.5">
-              <span className="truncate text-slate-300" title={contactValue}>
-                {contactValue}
-              </span>
-              <button
-                type="button"
-                onClick={() => onCopyContact(item._id, contactValue)}
-                className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-200 hover:bg-slate-700 shrink-0 transition cursor-pointer"
-              >
-                {copiedId === item._id ? 'Copied' : 'Copy'}
-              </button>
-            </div>
-          ) : (
-            <span className="text-[10px] text-slate-500 block text-center py-1">
-              Contact unavailable
-            </span>
-          )
-        ) : (
+      <div className="border-t border-slate-100 bg-slate-50 px-4 py-3 text-sm">
+        {/* Contact: guests see a login button, logged-in users see the contact */}
+        {!isLoggedIn ? (
           <button
-            type="button"
-            onClick={onOpenAuth}
-            className="w-full text-center text-[10px] font-medium py-1 rounded bg-slate-900 border border-slate-800 text-blue-400 hover:bg-slate-800 hover:text-blue-300 transition cursor-pointer"
+            onClick={onLogin}
+            className="text-indigo-600 font-medium hover:underline cursor-pointer"
           >
             Login to view contact
           </button>
-        )}
-
-        {isOwner && (
-          <div className="mt-2 pt-1.5 border-t border-slate-800/80 flex justify-end text-[10px] font-medium">
+        ) : contact ? (
+          <div className="flex items-center justify-between gap-2">
+            <span className="truncate text-slate-700">{contact}</span>
             <button
-              type="button"
-              onClick={() => onDelete(item._id)}
-              className="text-rose-400 hover:text-rose-300 hover:underline cursor-pointer"
+              onClick={copyContact}
+              className="text-xs font-medium border border-slate-300 bg-white rounded-md px-2 py-0.5 hover:bg-indigo-50 hover:border-indigo-300 cursor-pointer"
             >
-              Delete
+              {copied ? 'Copied' : 'Copy'}
             </button>
           </div>
+        ) : (
+          <span className="text-slate-400">Contact unavailable</span>
+        )}
+
+        {/* Only the owner sees Delete (the server checks this too) */}
+        {isOwner && (
+          <button
+            onClick={() => onDelete(item._id)}
+            className="block ml-auto mt-2 text-xs font-medium text-rose-600 hover:underline cursor-pointer"
+          >
+            Delete
+          </button>
         )}
       </div>
     </div>

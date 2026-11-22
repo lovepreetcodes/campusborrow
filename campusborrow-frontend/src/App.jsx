@@ -1,267 +1,195 @@
 import { useEffect, useState } from 'react';
-import {
-  clearAuth,
-  getStoredToken,
-  getStoredUser,
-  isTokenExpired,
-  saveAuth,
-} from './auth';
-import AuthModal from './components/AuthModal';
-import ItemCard from './components/ItemCard';
+import { clearAuth, getStoredToken, getStoredUser, saveAuth } from './auth';
 import Navbar from './components/Navbar';
+import AuthModal from './components/AuthModal';
 import PostItemForm from './components/PostItemForm';
 import ReportForm from './components/ReportForm';
+import ItemCard from './components/ItemCard';
 
 const ITEM_TYPES = ['all', 'borrow', 'giveaway', 'request', 'sell'];
-const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(
-  /\/+$/,
-  ''
-);
+const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/+$/, '');
 
-function App() {
-  const [items, setItems] = useState([]);
+export default function App() {
+  // ---------- STATE (everything the app remembers) ----------
+  const [items, setItems] = useState([]);            // items shown in the feed
   const [selectedType, setSelectedType] = useState('all');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [search, setSearch] = useState('');
 
-  const [token, setToken] = useState(() => {
-    const saved = getStoredToken();
-    if (!saved || isTokenExpired(saved)) {
-      clearAuth();
-      return null;
-    }
-    return saved;
-  });
-  const [user, setUser] = useState(() => getStoredUser());
-  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [token, setToken] = useState(getStoredToken());  // '' means logged out
+  const [user, setUser] = useState(getStoredUser());
 
+  const [showAuth, setShowAuth] = useState(false);       // login/signup popup
   const [showPostForm, setShowPostForm] = useState(false);
-  const [showReportForm, setShowReportForm] = useState(false);
-  const [copiedId, setCopiedId] = useState(null);
+  const [showReport, setShowReport] = useState(false);
 
-  function handleAuthSuccess({ token: nextToken, user: nextUser }) {
-    saveAuth(nextToken, nextUser);
-    setToken(nextToken);
-    setUser(nextUser);
+  // ---------- LOGIN / LOGOUT ----------
+  function handleLogin(data) {
+    saveAuth(data.token, data.user);   // remember in browser
+    setToken(data.token);              // remember in React (this triggers a feed reload)
+    setUser(data.user);
   }
 
   function handleLogout() {
     clearAuth();
-    setToken(null);
+    setToken('');
     setUser(null);
     setShowPostForm(false);
   }
 
-  function handleAuthExpired() {
+  // Called when the server says our token is no longer valid (401)
+  function handleSessionExpired() {
     handleLogout();
-    setShowAuthModal(true);
+    setShowAuth(true);
   }
 
-  function requireAuth(action) {
-    if (!token || isTokenExpired(token)) {
-      handleLogout();
-      setShowAuthModal(true);
-      return false;
-    }
-    action();
-    return true;
-  }
-
-  async function fetchItems(activeType = selectedType, authToken = token) {
+  // ---------- LOAD ITEMS FROM THE BACKEND ----------
+  // The token is sent if we have one, so the server also returns contact details.
+  async function loadItems() {
     try {
-      let validToken = authToken;
-      if (validToken && isTokenExpired(validToken)) {
-        clearAuth();
-        setToken(null);
-        setUser(null);
-        setShowPostForm(false);
-        validToken = null;
-      }
+      const query = selectedType === 'all' ? '' : `?type=${selectedType}`;
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-      const query =
-        activeType && activeType !== 'all'
-          ? `?type=${encodeURIComponent(activeType)}`
-          : '';
-
-      const headers = validToken
-        ? { Authorization: `Bearer ${validToken}` }
-        : {};
-
-      const response = await fetch(`${API_URL}/api/items${query}`, { headers });
-
-      if (response.status === 401 && validToken) {
-        handleLogout();
-        setItems([]);
-        return;
-      }
-
-      const data = await response.json();
-      const list = Array.isArray(data) ? data : [];
-
-      // If token was sent but backend stripped contact/phone on all items, token is invalid/expired
-      if (
-        validToken &&
-        list.length > 0 &&
-        list.every((item) => !item.contact && !item.phone)
-      ) {
-        handleLogout();
-      }
-
-      setItems(list);
+      const res = await fetch(`${API_URL}/api/items${query}`, { headers });
+      const data = await res.json();
+      setItems(Array.isArray(data) ? data : []);
     } catch {
       setItems([]);
     }
   }
 
+  // Runs on page load, and again whenever the filter or the login changes
   useEffect(() => {
-    fetchItems(selectedType, token);
+    loadItems();
   }, [selectedType, token]);
 
-  async function handleDeleteItem(itemId) {
-    if (!token || isTokenExpired(token)) {
-      handleAuthExpired();
-      return;
-    }
-
-    const response = await fetch(`${API_URL}/api/items/${itemId}`, {
+  // ---------- ACTIONS ----------
+  async function handleDelete(itemId) {
+    const res = await fetch(`${API_URL}/api/items/${itemId}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
     });
 
-    if (response.status === 401) {
-      handleAuthExpired();
-      return;
-    }
+    if (res.status === 401) return handleSessionExpired();
+    if (!res.ok) return alert('Could not delete item.');
 
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      alert(data.error || data.message || 'Could not delete item.');
-      return;
-    }
-
-    setItems((prev) => prev.filter((item) => item._id !== itemId));
+    setItems(items.filter((item) => item._id !== itemId)); // remove from screen
   }
 
-  async function handleCopyContact(itemId, contactValue) {
-    if (!contactValue) return;
-    try {
-      await navigator.clipboard.writeText(contactValue);
-      setCopiedId(itemId);
-      setTimeout(() => setCopiedId(null), 1500);
-    } catch {
-      alert(`Contact: ${contactValue}`);
-    }
+  function handlePostClick() {
+    if (!token) return setShowAuth(true); // must log in first
+    setShowPostForm(!showPostForm);
+    setShowReport(false);
   }
 
-  const visibleItems = items.filter((item) => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return true;
-    return (
-      (item.title || '').toLowerCase().includes(q) ||
-      (item.description || '').toLowerCase().includes(q)
-    );
-  });
+  function handleReportClick() {
+    setShowReport(!showReport);
+    setShowPostForm(false);
+  }
 
-  const currentUserId = user?.id || user?._id || null;
+  function handleItemPosted() {
+    setShowPostForm(false);
+    loadItems(); // refresh the list so the new item appears
+  }
 
+  // ---------- SEARCH (done in the browser) ----------
+  const text = search.trim().toLowerCase();
+  const visibleItems = items.filter(
+    (item) =>
+      item.title.toLowerCase().includes(text) ||
+      (item.description || '').toLowerCase().includes(text)
+  );
+
+  // ---------- SCREEN ----------
   return (
-    <div id="top" className="min-h-screen bg-slate-950 text-slate-100">
+    <div className="min-h-screen bg-slate-100 text-slate-900">
       <Navbar
         user={user}
         showPostForm={showPostForm}
-        showReportForm={showReportForm}
-        onOpenAuth={() => setShowAuthModal(true)}
+        showReport={showReport}
+        onLogin={() => setShowAuth(true)}
         onLogout={handleLogout}
-        onTogglePostForm={() =>
-          requireAuth(() => {
-            setShowPostForm((prev) => !prev);
-            setShowReportForm(false);
-          })
-        }
-        onToggleReportForm={() => {
-          setShowReportForm((prev) => !prev);
-          setShowPostForm(false);
-        }}
+        onPostClick={handlePostClick}
+        onReportClick={handleReportClick}
       />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-5">
-        {showPostForm && token && (
+      <main className="max-w-6xl mx-auto px-4 py-6">
+        {showPostForm && (
           <PostItemForm
             apiUrl={API_URL}
             token={token}
-            onCreated={() => {
-              setShowPostForm(false);
-              fetchItems(selectedType, token);
-            }}
+            onPosted={handleItemPosted}
             onCancel={() => setShowPostForm(false)}
-            onAuthExpired={handleAuthExpired}
+            onSessionExpired={handleSessionExpired}
           />
         )}
 
-        {showReportForm && (
-          <ReportForm onClose={() => setShowReportForm(false)} />
-        )}
+        {showReport && <ReportForm onClose={() => setShowReport(false)} />}
 
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-          <div className="flex flex-wrap gap-1.5">
-            {ITEM_TYPES.map((itemType) => {
-              const isActive = selectedType === itemType;
-              return (
-                <button
-                  key={itemType}
-                  type="button"
-                  onClick={() => setSelectedType(itemType)}
-                  className={`px-3 py-1 rounded-full text-xs font-medium capitalize transition cursor-pointer ${
-                    isActive
-                      ? 'bg-blue-500 text-white shadow-xs'
-                      : 'bg-slate-900 text-slate-300 border border-slate-800 hover:bg-slate-800 hover:text-white'
-                  }`}
-                >
-                  {itemType}
-                </button>
-              );
-            })}
+        {/* Intro */}
+        <div className="mb-6">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-indigo-950">
+            Borrow, give away or sell on campus
+          </h1>
+          <p className="text-slate-500 mt-1">
+            See what students around you are sharing. Log in to get their contact details.
+          </p>
+        </div>
+
+        {/* Type filter buttons + search box */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
+          <div className="flex flex-wrap gap-2">
+            {ITEM_TYPES.map((type) => (
+              <button
+                key={type}
+                onClick={() => setSelectedType(type)}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium capitalize border cursor-pointer transition ${
+                  selectedType === type
+                    ? 'bg-indigo-950 text-white border-indigo-950'
+                    : 'bg-white text-slate-700 border-slate-300 hover:border-indigo-400 hover:text-indigo-700'
+                }`}
+              >
+                {type}
+              </button>
+            ))}
           </div>
 
           <input
             type="text"
             placeholder="Search items..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs sm:text-sm text-slate-100 placeholder:text-slate-500 w-full sm:w-56 shadow-xs focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="bg-white border border-slate-300 rounded-full px-4 py-2 text-sm w-full sm:w-64 shadow-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
           />
         </div>
 
+        {/* Item grid */}
         {visibleItems.length === 0 ? (
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-8 text-center text-slate-400 text-sm">
-            No matching items found.
-          </div>
+          <p className="bg-white border border-dashed border-slate-300 rounded-2xl p-10 text-center text-slate-500">
+            Nothing here yet. Try another filter, or post the first item.
+          </p>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5">
             {visibleItems.map((item) => (
               <ItemCard
                 key={item._id}
                 item={item}
-                currentUserId={currentUserId}
+                currentUserId={user?.id}
                 isLoggedIn={Boolean(token)}
-                copiedId={copiedId}
-                onCopyContact={handleCopyContact}
-                onDelete={handleDeleteItem}
-                onOpenAuth={() => setShowAuthModal(true)}
+                onDelete={handleDelete}
+                onLogin={() => setShowAuth(true)}
               />
             ))}
           </div>
         )}
       </main>
 
-      {showAuthModal && (
+      {showAuth && (
         <AuthModal
           apiUrl={API_URL}
-          onClose={() => setShowAuthModal(false)}
-          onSuccess={handleAuthSuccess}
+          onSuccess={handleLogin}
+          onClose={() => setShowAuth(false)}
         />
       )}
     </div>
   );
 }
-
-export default App;

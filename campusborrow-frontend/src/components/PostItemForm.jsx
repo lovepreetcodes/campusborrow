@@ -1,107 +1,67 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { fileToResizedDataUrl } from '../imageHelper';
 
-export default function PostItemForm({ apiUrl, token, onCreated, onCancel, onAuthExpired }) {
+const inputClass =
+  'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200';
+
+export default function PostItemForm({ apiUrl, token, onPosted, onCancel, onSessionExpired }) {
   const [title, setTitle] = useState('');
   const [type, setType] = useState('borrow');
   const [contact, setContact] = useState('');
   const [description, setDescription] = useState('');
   const [imageUrl, setImageUrl] = useState('');
-  const [isProcessingImage, setIsProcessingImage] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const fileInputRef = useRef(null);
+  const [busy, setBusy] = useState(false); // true while resizing image or saving
 
-  function resetForm() {
-    setTitle('');
-    setType('borrow');
-    setContact('');
-    setDescription('');
-    setImageUrl('');
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  }
-
+  // Resize the chosen photo and keep it as a text (base64) string
   async function handleImageChange(e) {
-    const file = e.target.files?.[0];
-    if (!file) {
-      setImageUrl('');
-      return;
-    }
-    if (!file.type.startsWith('image/')) {
-      alert('Please select a valid image file.');
-      e.target.value = '';
-      return;
-    }
+    const file = e.target.files[0];
+    if (!file) return setImageUrl('');
 
-    setIsProcessingImage(true);
+    setBusy(true);
     try {
-      const resized = await fileToResizedDataUrl(file);
-      setImageUrl(resized);
+      setImageUrl(await fileToResizedDataUrl(file));
     } catch {
-      alert('Could not process that image. Try another photo.');
+      alert('Could not process that image.');
       setImageUrl('');
-    } finally {
-      setIsProcessingImage(false);
     }
+    setBusy(false);
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (isProcessingImage || submitting) return;
+    setBusy(true);
 
-    setSubmitting(true);
-    try {
-      const res = await fetch(`${apiUrl}/api/items`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ title, type, contact, description, imageUrl }),
-      });
+    const res = await fetch(`${apiUrl}/api/items`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`, // proves who is posting
+      },
+      body: JSON.stringify({ title, type, contact, description, imageUrl }),
+    });
 
-      if (res.status === 401) {
-        onAuthExpired();
-        return;
-      }
+    setBusy(false);
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        alert(err.error || err.message || 'Could not save item.');
-        return;
-      }
+    if (res.status === 401) return onSessionExpired();
+    if (!res.ok) return alert('Could not save item.');
 
-      resetForm();
-      onCreated();
-    } finally {
-      setSubmitting(false);
-    }
+    onPosted(); // tell App to refresh the list
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="bg-slate-900 border border-slate-800 rounded-xl p-4 mb-5 shadow-lg"
-    >
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold text-white">Post an Item</h2>
-        <span className="text-xs text-slate-400">Linked to your account</span>
-      </div>
+    <form onSubmit={handleSubmit} className="bg-white border border-slate-200 border-t-4 border-t-indigo-600 rounded-2xl p-6 mb-6 shadow-sm">
+      <h2 className="text-lg font-semibold mb-4">Post an Item</h2>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="grid sm:grid-cols-2 gap-3">
         <input
-          type="text"
+          className={inputClass}
           placeholder="Title (e.g., Scientific Calculator)"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition"
           required
         />
 
-        <select
-          value={type}
-          onChange={(e) => setType(e.target.value)}
-          className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition"
-        >
+        <select className={inputClass} value={type} onChange={(e) => setType(e.target.value)}>
           <option value="borrow">Borrow</option>
           <option value="giveaway">Giveaway</option>
           <option value="request">Request</option>
@@ -109,72 +69,41 @@ export default function PostItemForm({ apiUrl, token, onCreated, onCancel, onAut
         </select>
 
         <input
-          type="text"
+          className={`${inputClass} sm:col-span-2`}
           placeholder="Contact (phone or email)"
           value={contact}
           onChange={(e) => setContact(e.target.value)}
-          className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-sm text-slate-100 placeholder:text-slate-500 sm:col-span-2 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition"
           required
         />
 
         <input
-          type="text"
-          placeholder="Short description or return timeline"
+          className={`${inputClass} sm:col-span-2`}
+          placeholder="Short description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-sm text-slate-100 placeholder:text-slate-500 sm:col-span-2 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition"
         />
 
-        <div className="sm:col-span-2 flex flex-col sm:flex-row sm:items-center gap-3 pt-0.5">
-          <label className="text-xs sm:text-sm text-slate-300 font-medium">
-            Photo (optional):
-          </label>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleImageChange}
-            className="text-xs sm:text-sm text-slate-400 file:mr-3 file:py-1 file:px-2.5 file:rounded-lg file:border file:border-slate-700 file:text-xs file:font-medium file:bg-slate-800 file:text-slate-200 hover:file:bg-slate-700 cursor-pointer"
-          />
+        <div className="sm:col-span-2">
+          <label className="text-sm text-slate-600 block mb-1">Photo (optional)</label>
+          <input type="file" accept="image/*" onChange={handleImageChange} className="text-sm" />
           {imageUrl && (
-            <button
-              type="button"
-              onClick={() => {
-                setImageUrl('');
-                if (fileInputRef.current) fileInputRef.current.value = '';
-              }}
-              className="text-xs text-rose-400 hover:underline self-start sm:self-center cursor-pointer"
-            >
-              Remove photo
-            </button>
+            <img src={imageUrl} alt="Preview" className="mt-3 h-28 rounded-lg border border-slate-200" />
           )}
         </div>
-
-        {isProcessingImage && (
-          <p className="text-xs text-slate-400 sm:col-span-2">Preparing image...</p>
-        )}
-
-        {imageUrl && (
-          <div className="sm:col-span-2">
-            <div className="w-full max-w-xs h-32 rounded-lg overflow-hidden border border-slate-800 bg-slate-950">
-              <img src={imageUrl} alt="Preview" className="w-full h-full object-cover" />
-            </div>
-          </div>
-        )}
       </div>
 
-      <div className="mt-4 pt-3 border-t border-slate-800 flex items-center gap-2">
+      <div className="flex gap-2 mt-5">
         <button
           type="submit"
-          disabled={isProcessingImage || submitting}
-          className="bg-blue-500 text-white px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium hover:bg-blue-400 disabled:opacity-50 transition cursor-pointer"
+          disabled={busy}
+          className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-700 disabled:opacity-50 cursor-pointer"
         >
-          {submitting ? 'Adding...' : 'Add Item'}
+          {busy ? 'Please wait...' : 'Add Item'}
         </button>
         <button
           type="button"
           onClick={onCancel}
-          className="border border-slate-700 text-slate-300 px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium hover:bg-slate-800 transition cursor-pointer"
+          className="border border-slate-300 px-4 py-2 rounded-lg text-sm hover:bg-slate-100 cursor-pointer"
         >
           Cancel
         </button>

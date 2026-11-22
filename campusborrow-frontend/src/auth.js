@@ -1,35 +1,15 @@
+// Small helpers to remember the logged-in user in the browser (localStorage).
+
 const TOKEN_KEY = 'cb_token';
 const USER_KEY = 'cb_user';
 
-export function isTokenExpired(token) {
-  if (!token) return true;
+// Reads the expiry time stored inside the JWT (no verification, the server does that)
+function isTokenExpired(token) {
   try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return true;
-    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-    if (!payload.exp) return false;
+    const payload = JSON.parse(atob(token.split('.')[1]));
     return Date.now() >= payload.exp * 1000;
   } catch {
     return true;
-  }
-}
-
-export function getStoredToken() {
-  const token = localStorage.getItem(TOKEN_KEY) || '';
-  if (token && isTokenExpired(token)) {
-    clearAuth();
-    return '';
-  }
-  return token;
-}
-
-export function getStoredUser() {
-  if (!getStoredToken()) return null;
-  try {
-    const raw = localStorage.getItem(USER_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
   }
 }
 
@@ -41,4 +21,23 @@ export function saveAuth(token, user) {
 export function clearAuth() {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+}
+
+// Returns the saved token, or '' if there is none / it has expired
+export function getStoredToken() {
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (!token || isTokenExpired(token)) {
+    clearAuth();
+    return '';
+  }
+  return token;
+}
+
+export function getStoredUser() {
+  if (!getStoredToken()) return null;
+  try {
+    return JSON.parse(localStorage.getItem(USER_KEY));
+  } catch {
+    return null;
+  }
 }
